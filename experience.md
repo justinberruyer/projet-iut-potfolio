@@ -7,7 +7,6 @@
 - réalisation d'une application de data visualisation sur la comptabilité du CIL
 - réalisation d'une application de data visualisation sur les marges des ventes d'un magasin partenaire
 
-
 ## alternance troisième année - MAIF (siège, Niort)
 - logiciels utilisés : Excel, Python, VBA, Spotfire
 - mise à jour des différents tableaux de bord Spotfire

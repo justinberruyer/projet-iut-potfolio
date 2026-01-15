@@ -109,8 +109,9 @@ def _compress_retrieved_text(text: str, *, query: str = "", max_chars: int = 520
     if not cleaned:
         return ""
 
-    # Retire les headings Markdown (souvent redondants avec le champ title)
-    cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", cleaned).strip()
+    # Conserve les headings Markdown mais retire uniquement les '#'.
+    # Les headings contiennent parfois l'information clé (ex: "alternance ...").
+    cleaned = re.sub(r"(?m)^#{1,6}\s+", "", cleaned).strip()
 
     # Normalise les espaces
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -149,8 +150,15 @@ def _compress_retrieved_text(text: str, *, query: str = "", max_chars: int = 520
 
 @function_tool(name_override="search_vector_db", description_override="Recherche dans la base vectorielle des informations sur le profil de Justin Berruyer.")
 def search_vector_db(query: str) -> str:
+    q = (query or "").strip()
+    q_l = q.lower()
+    if re.search(r"\balternant\b", q_l) and "alternance" not in q_l:
+        q = f"{q} alternance"
+    elif re.search(r"\balternance\b", q_l) and "alternant" not in q_l:
+        q = f"{q} alternant"
+
     results = index.query(
-        data=query,
+        data=q,
         top_k=8,
         include_metadata=True,
         include_data=True,
@@ -158,14 +166,16 @@ def search_vector_db(query: str) -> str:
     if not results:
         return "Aucun résultat trouvé dans la base vectorielle pour cette question."
 
-    payload: dict = {"query": query, "matches": []}
+    payload: dict = {"query": q, "matches": []}
     for r in results:
         md = r.metadata or {}
         source = (md.get("source") or "").strip()
         chunk = md.get("chunk")
         title = (md.get("title") or "").strip()
 
-        excerpt = _compress_retrieved_text(r.data or "", query=query)
+        excerpt = _compress_retrieved_text(r.data or "", query=q)
+        if title and title.lower() not in (excerpt or "").lower():
+            excerpt = f"{title} — {excerpt}".strip(" —")
         if not excerpt:
             continue
 
@@ -181,6 +191,25 @@ def search_vector_db(query: str) -> str:
     if not payload["matches"]:
         return "Résultats trouvés, mais sans contenu exploitable."
 
+    # Priorise les sources les plus pertinentes selon l'intention.
+    q_intent = (q or "").lower()
+    wants_projects = any(k in q_intent for k in ("projet", "projets", "sae", "but", "sd1", "sd2"))
+    wants_experience = any(k in q_intent for k in ("expérience", "experience", "stage", "alternance", "alternant"))
+
+    def _rank_key(m: dict) -> tuple[int, int]:
+        src = (m.get("source") or "").lower()
+        title = (m.get("title") or "").lower()
+        boost = 0
+        if wants_projects and "projet.md" in src:
+            boost += 10
+        if wants_experience and "experience.md" in src:
+            boost += 10
+        if wants_projects and ("but" in title or "sae" in title):
+            boost += 2
+        return (boost, -len((m.get("excerpt") or "")))
+
+    payload["matches"].sort(key=_rank_key, reverse=True)
+
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 agent = Agent(
@@ -190,11 +219,12 @@ agent = Agent(
         "Règles :\n"
         "- Si la question est à propos de Justin / de son parcours / de ses projets / compétences : appelle TOUJOURS d'abord `search_vector_db` avec la question.\n"
         "- Réponds ensuite UNIQUEMENT avec les faits présents dans la sortie de l'outil (pas d'invention).\n"
+        "- Utilise les champs `title` et `source` pour citer clairement l'expérience (ex: Alternance (MAIF) / Stage (CIL)).\n"
         "- Reformule systématiquement : ne recopie pas mot pour mot les extraits. Évite les longues listes (donne 3 à 5 exemples max).\n"
         "- Réponse courte et utile : 2 à 6 phrases, ou 3 à 6 puces si c'est plus clair.\n"
         "- Si l'outil n'apporte rien de pertinent : dis-le et propose une reformulation.\n"
         "- Si l'utilisateur demande 'qui es-tu' / 'ton rôle' : réponds sans appeler l'outil.\n"
-        "- Si l'utilisateur parle à la 1ère personne ('qui suis-je', 'parle-moi de moi') et que ce n'est pas explicitement Justin : demande une clarification (toi vs Justin)."
+        "- Si l'utilisateur parle à la 1ère personne (ex: 'mes projets', 'mon alternance') : suppose qu'il parle de Justin et réponds normalement avec l'outil."
     ),
     
     model="gpt-4.1-nano",
