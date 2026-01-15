@@ -58,6 +58,12 @@ Ajoutez une **Tool** (fonction) à votre agent pour lui permettre d'interroger v
 Créez une interface de chat pour permettre aux utilisateurs d'interagir avec votre agent.
 * [Tutoriel : Créer une application de chat avec Streamlit](https://docs.streamlit.io/develop/tutorials/chat-and-llm-apps/build-conversational-apps)
 
+Pour lancer l'application de chat de ce projet :
+* `streamlit run app.py`
+
+**Important :** vous n'avez pas besoin de relancer `indexation.py` à chaque démarrage.
+Relancez `indexation.py` uniquement quand vous modifiez/ajoutez des fichiers Markdown à indexer (sinon cela rajoute du temps inutile au lancement).
+
 ### 7. Déploiement sur Streamlit Cloud
 Une fois votre application fonctionnelle, déployez là sur Streamlit Cloud.
 * [Documentation : Déployer votre application sur Streamlit Community Cloud](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy)
