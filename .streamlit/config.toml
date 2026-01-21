@@ -1,0 +1,11 @@
+[theme]
+# Thème sombre moderne (sans CSS custom)
+primaryColor = "#7C3AED"
+backgroundColor = "#0B1020"
+secondaryBackgroundColor = "#111A2E"
+textColor = "#F3F4F6"
+font = "sans serif"
+
+[client]
+# Interface plus clean
+toolbarMode = "minimal"
