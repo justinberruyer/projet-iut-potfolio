@@ -39,6 +39,7 @@ def chunk_markdown(markdown: str) -> list[tuple[str, str]]:
 
 
 def build_vectors(root: Path | None = None) -> list[Vector]:
+    """ retourne une liste de vecteur à partir des fichiers markdown dans data/ """
     if root is None:
         root = Path(__file__).resolve().parent.parent
 
@@ -63,6 +64,7 @@ def build_vectors(root: Path | None = None) -> list[Vector]:
 
 
 def index_markdown(index: Index, root: Path | None = None) -> int:
+    """ envoie vers upstash les vecteurs construits à partir des fichiers markdown"""
     vectors = build_vectors(root=root)
     if vectors:
         index.upsert(vectors=vectors)
@@ -70,9 +72,13 @@ def index_markdown(index: Index, root: Path | None = None) -> int:
 
 
 def build_agent(index: Index) -> Agent:
+    """ a partir de la questions posée par l'utilisateur, retourne des données a partir de l'index upstash, puis 
+    construit un agent pour répondre à la question en utilisant les données retournées.
+    """
 
     @function_tool
     def recherche(query: str) -> str:
+        """ recheche dans l'index upstash et retourne les résultats au format json """
         q = (query or "").strip()
 
         results = index.query(
@@ -108,6 +114,7 @@ def build_agent(index: Index) -> Agent:
 
 
 def run_question(agent: Agent, question: str, last_response_id: str | None = None):
+    """ pose une question à l'agent et retourne la réponse et l'id de la dernière réponse """
     result = Runner.run_sync(
         agent,
         question,
